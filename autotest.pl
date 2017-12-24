@@ -6,11 +6,10 @@ use utf8;
 use POSIX qw(strftime);
  
 my $prod_bin = "/usr/bin/gedit";
-my $user = "schulmann"; #username
+my $user = `whoami`; #get current username
 my $timeout = 2;
- 
-# exec product
 
+# exec product
 system("$prod_bin 2> /dev/null &");
 sleep 1;
 my $pid_str = `ps waux|grep "$prod_bin"|egrep -v "grep|bash"`;
@@ -18,7 +17,6 @@ my $pid_str = `ps waux|grep "$prod_bin"|egrep -v "grep|bash"`;
 # get pid
 my @pids = split(' ', $pid_str);
 #my $pid = ($pid_str =~ /$user\s+(\d+)/);t
-print "PID: $pids[1]\n";
  
 # get wid
 my $prod_wids = `xdotool search --all --pid $pids[1]`; # shoud return two windows id
@@ -34,8 +32,6 @@ foreach my $wid (split (/\n/, $prod_wids)) {
     }
     $prod_wid = $wid;
 }
-print "WID: $prod_wid\n";
-
  
 # Move to 0x0 position
 system ("xdotool windowmove $prod_wid 0 0");
@@ -46,13 +42,13 @@ system ("xdotool windowactivate --sync $prod_wid");
 
 my $typed_text = <<endt;
  
-########  #### ######## ########    ##     ## ##    ##     ######  ##     ## #### ##    ## ##    ##    
-##     ##  ##     ##    ##          ###   ###  ##  ##     ##    ## ##     ##  ##  ###   ##  ##  ##     
-##     ##  ##     ##    ##          #### ####   ####      ##       ##     ##  ##  ####  ##   ####      
-########   ##     ##    ######      ## ### ##    ##        ######  #########  ##  ## ## ##    ##       
-##     ##  ##     ##    ##          ##     ##    ##             ## ##     ##  ##  ##  ####    ##       
-##     ##  ##     ##    ##          ##     ##    ##       ##    ## ##     ##  ##  ##   ###    ##       
-########  ####    ##    ########    ##     ##    ##        ######  ##     ## #### ##    ##    ##       
+########  
+##     ## 
+##     ## 
+########  
+##     ## 
+##     ## 
+########  
  
 endt
  
@@ -61,19 +57,40 @@ foreach my $line (split /\n/, $typed_text) {
 }
  
  
-# kill product
-sleep 3;
-#kill 2, $pid;
- 
-# save current date and time
-my $datestring = strftime("%G-%m-%d %H:%M:%S", localtime);
+# little delay
+sleep 2;
 
-# save product using following format: HW1 YYYY-MM-DD hh:mm:ss
-system ("xdotool key --delay 250 alt+F4 Return");
-system ("xdotool key type \"HW1 $datestring.txt\"");
-system ("xdotool key Return");
+# get current date and time
+my $datestring = strftime("%G-%m-%d_%H:%M:%S", localtime);
 
-sleep 1;
+my $buffer;
+
+# save product using following format: HW1_YYYY-MM-DD_hh:mm:ss.txt
+LOOP:
+while (1){
+unless ($buffer){
+    system ("xdotool key --delay 500 alt+F4 Return");
+    system ("xdotool key type \"HW1_$datestring.txt\"");
+    system ("xdotool key Return");
+    
+    sleep 1;
+    #check if file saved correctly
+    $buffer = `find ~ -maxdepth 1 -type f -name \"HW1_$datestring.txt\" -print`; #find 
+}else{
+    # if it saved correclty save status to log.txt
+    system ("touch log.txt");	# if log.txt not exists
+    open (LOGS,">> log.txt") 	
+	or die "Can't open log.txt: $!";
+    $datestring = strftime("%H:%M:%S %d.%m.%G  ", localtime);
+    print (LOGS "$datestring Created new test file\n");
+    close LOGS;
+    last LOOP;
+}
+}
+# kill gedit process
 system ("kill $pids[1]");
- 
+
+#call next perl script to check for old tests
+system ("perl autotest2.pl");
+
 exit 0;
